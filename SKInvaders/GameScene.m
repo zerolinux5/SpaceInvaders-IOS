@@ -40,10 +40,11 @@ typedef enum InvaderMovementDirection {
 #pragma mark - Private GameScene Properties
 
 @interface GameScene ()
-@property BOOL contentCreated;
-@property InvaderMovementDirection invaderMovementDirection;
-@property NSTimeInterval timeOfLastMove;
-@property NSTimeInterval timePerMove;
+    @property BOOL contentCreated;
+    @property InvaderMovementDirection invaderMovementDirection;
+    @property NSTimeInterval timeOfLastMove;
+    @property NSTimeInterval timePerMove;
+    @property (strong) CMMotionManager* motionManager;
 @end
 
 
@@ -58,6 +59,8 @@ typedef enum InvaderMovementDirection {
     if (!self.contentCreated) {
         [self createContent];
         self.contentCreated = YES;
+        self.motionManager = [[CMMotionManager alloc] init];
+        [self.motionManager startAccelerometerUpdates];
     }
 }
 
@@ -74,6 +77,7 @@ typedef enum InvaderMovementDirection {
     self.timePerMove = 1.0;
     //3
     self.timeOfLastMove = 0.0;
+    self.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:self.frame];
     [self setupInvaders];
     [self setupShip];
     [self setupHud];
@@ -138,6 +142,16 @@ typedef enum InvaderMovementDirection {
 -(SKNode*)makeShip {
     SKNode* ship = [SKSpriteNode spriteNodeWithColor:[SKColor greenColor] size:kShipSize];
     ship.name = kShipName;
+    
+    //1
+    ship.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:ship.frame.size];
+    //2
+    ship.physicsBody.dynamic = YES;
+    //3
+    ship.physicsBody.affectedByGravity = NO;
+    //4
+    ship.physicsBody.mass = 0.02;
+    
     return ship;
 }
 
@@ -168,6 +182,7 @@ typedef enum InvaderMovementDirection {
 #pragma mark - Scene Update
 
 -(void)update:(NSTimeInterval)currentTime {
+    [self processUserMotionForUpdate:currentTime];
     [self moveInvadersForUpdate:currentTime];
 }
 
@@ -200,6 +215,18 @@ typedef enum InvaderMovementDirection {
     
     //3
     self.timeOfLastMove = currentTime;
+}
+
+-(void)processUserMotionForUpdate:(NSTimeInterval)currentTime {
+    //1
+    SKSpriteNode* ship = (SKSpriteNode*)[self childNodeWithName:kShipName];
+    //2
+    CMAccelerometerData* data = self.motionManager.accelerometerData;
+    //3
+    if (fabs(data.acceleration.x) > 0.2) {
+        //4 How do you move the ship?
+        [ship.physicsBody applyForce:CGVectorMake(40.0 * data.acceleration.x, 0)];
+    }
 }
 
 #pragma mark - Invader Movement Helpers
