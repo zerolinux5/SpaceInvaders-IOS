@@ -177,6 +177,7 @@ typedef enum InvaderMovementDirection {
 -(void)moveInvadersForUpdate:(NSTimeInterval)currentTime {
     //1
     if (currentTime - self.timeOfLastMove < self.timePerMove) return;
+    [self determineInvaderMovementDirection];
     
     //2
     [self enumerateChildNodesWithName:kInvaderName usingBlock:^(SKNode *node, BOOL *stop) {
@@ -202,6 +203,48 @@ typedef enum InvaderMovementDirection {
 }
 
 #pragma mark - Invader Movement Helpers
+
+-(void)determineInvaderMovementDirection {
+    //1
+    __block InvaderMovementDirection proposedMovementDirection = self.invaderMovementDirection;
+    
+    //2
+    [self enumerateChildNodesWithName:kInvaderName usingBlock:^(SKNode *node, BOOL *stop) {
+        switch (self.invaderMovementDirection) {
+            case InvaderMovementDirectionRight:
+                //3
+                if (CGRectGetMaxX(node.frame) >= node.scene.size.width - 1.0f) {
+                    proposedMovementDirection = InvaderMovementDirectionDownThenLeft;
+                    *stop = YES;
+                }
+                break;
+            case InvaderMovementDirectionLeft:
+                //4
+                if (CGRectGetMinX(node.frame) <= 1.0f) {
+                    proposedMovementDirection = InvaderMovementDirectionDownThenRight;
+                    *stop = YES;
+                }
+                break;
+            case InvaderMovementDirectionDownThenLeft:
+                //5
+                proposedMovementDirection = InvaderMovementDirectionLeft;
+                *stop = YES;
+                break;
+            case InvaderMovementDirectionDownThenRight:
+                //6
+                proposedMovementDirection = InvaderMovementDirectionRight;
+                *stop = YES;
+                break;
+            default:
+                break;
+        }
+    }];
+    
+    //7
+    if (proposedMovementDirection != self.invaderMovementDirection) {
+        self.invaderMovementDirection = proposedMovementDirection;
+    }
+}
 
 #pragma mark - Bullet Helpers
 
