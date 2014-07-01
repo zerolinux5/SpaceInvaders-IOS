@@ -24,6 +24,8 @@ typedef enum InvaderType {
 #define kInvaderColCount 6
 //3
 #define kInvaderName @"invader"
+#define kShipSize CGSizeMake(30, 16)
+#define kShipName @"ship"
 
 #pragma mark - Private GameScene Properties
 
@@ -54,6 +56,7 @@ typedef enum InvaderType {
     [self addChild:invader];
     */
     [self setupInvaders];
+    [self setupShip];
 }
 
 -(SKNode*)makeInvaderOfType:(InvaderType)invaderType {
@@ -102,6 +105,20 @@ typedef enum InvaderType {
             invaderPosition.x += kInvaderSize.width + kInvaderGridSpacing.width;
         }
     }
+}
+
+-(void)setupShip {
+    //1
+    SKNode* ship = [self makeShip];
+    //2
+    ship.position = CGPointMake(self.size.width / 2.0f, kShipSize.height/2.0f);
+    [self addChild:ship];
+}
+
+-(SKNode*)makeShip {
+    SKNode* ship = [SKSpriteNode spriteNodeWithColor:[SKColor greenColor] size:kShipSize];
+    ship.name = kShipName;
+    return ship;
 }
 
 #pragma mark - Scene Update
