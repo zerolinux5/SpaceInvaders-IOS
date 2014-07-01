@@ -217,6 +217,7 @@ typedef enum BulletType {
     [self processUserTapsForUpdate:currentTime];
     [self processUserMotionForUpdate:currentTime];
     [self moveInvadersForUpdate:currentTime];
+    [self fireInvaderBulletsForUpdate:currentTime];
 }
 
 #pragma mark - Scene Update Helpers
@@ -271,6 +272,31 @@ typedef enum BulletType {
     if (fabs(data.acceleration.x) > 0.2) {
         //4 How do you move the ship?
         [ship.physicsBody applyForce:CGVectorMake(40.0 * data.acceleration.x, 0)];
+    }
+}
+
+-(void)fireInvaderBulletsForUpdate:(NSTimeInterval)currentTime {
+    SKNode* existingBullet = [self childNodeWithName:kInvaderFiredBulletName];
+    //1
+    if (!existingBullet) {
+        //2
+        NSMutableArray* allInvaders = [NSMutableArray array];
+        [self enumerateChildNodesWithName:kInvaderName usingBlock:^(SKNode *node, BOOL *stop) {
+            [allInvaders addObject:node];
+        }];
+        
+        if ([allInvaders count] > 0) {
+            //3
+            NSUInteger allInvadersIndex = arc4random_uniform([allInvaders count]);
+            SKNode* invader = [allInvaders objectAtIndex:allInvadersIndex];
+            //4
+            SKNode* bullet = [self makeBulletOfType:InvaderFiredBulletType];
+            bullet.position = CGPointMake(invader.position.x, invader.position.y - invader.frame.size.height/2 + bullet.frame.size.height / 2);
+            //5
+            CGPoint bulletDestination = CGPointMake(invader.position.x, - bullet.frame.size.height / 2);
+            //6
+            [self fireBullet:bullet toDestination:bulletDestination withDuration:2.0 soundFileName:@"InvaderBullet.wav"];
+        }
     }
 }
 
