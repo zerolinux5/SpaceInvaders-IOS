@@ -25,6 +25,11 @@ typedef enum InvaderMovementDirection {
     InvaderMovementDirectionNone
 } InvaderMovementDirection;
 
+typedef enum BulletType {
+    ShipFiredBulletType,
+    InvaderFiredBulletType
+} BulletType;
+
 //2
 #define kInvaderSize CGSizeMake(24, 16)
 #define kInvaderGridSpacing CGSizeMake(12, 12)
@@ -37,6 +42,10 @@ typedef enum InvaderMovementDirection {
 #define kScoreHudName @"scoreHud"
 #define kHealthHudName @"healthHud"
 
+#define kShipFiredBulletName @"shipFiredBullet"
+#define kInvaderFiredBulletName @"invaderFiredBullet"
+#define kBulletSize CGSizeMake(4, 8)
+
 #pragma mark - Private GameScene Properties
 
 @interface GameScene ()
@@ -45,6 +54,7 @@ typedef enum InvaderMovementDirection {
     @property NSTimeInterval timeOfLastMove;
     @property NSTimeInterval timePerMove;
     @property (strong) CMMotionManager* motionManager;
+    @property (strong) NSMutableArray* tapQueue;
 @end
 
 
@@ -54,6 +64,26 @@ typedef enum InvaderMovementDirection {
 
 #pragma mark - Scene Setup and Content Creation
 
+-(SKNode*)makeBulletOfType:(BulletType)bulletType {
+    SKNode* bullet;
+    
+    switch (bulletType) {
+        case ShipFiredBulletType:
+            bullet = [SKSpriteNode spriteNodeWithColor:[SKColor greenColor] size:kBulletSize];
+            bullet.name = kShipFiredBulletName;
+            break;
+        case InvaderFiredBulletType:
+            bullet = [SKSpriteNode spriteNodeWithColor:[SKColor magentaColor] size:kBulletSize];
+            bullet.name = kInvaderFiredBulletName;
+            break;
+        default:
+            bullet = nil;
+            break;
+    }
+    
+    return bullet;
+}
+
 - (void)didMoveToView:(SKView *)view
 {
     if (!self.contentCreated) {
@@ -61,6 +91,8 @@ typedef enum InvaderMovementDirection {
         self.contentCreated = YES;
         self.motionManager = [[CMMotionManager alloc] init];
         [self.motionManager startAccelerometerUpdates];
+        self.tapQueue = [NSMutableArray array];
+        self.userInteractionEnabled = YES;
     }
 }
 
@@ -182,6 +214,7 @@ typedef enum InvaderMovementDirection {
 #pragma mark - Scene Update
 
 -(void)update:(NSTimeInterval)currentTime {
+    [self processUserTapsForUpdate:currentTime];
     [self processUserMotionForUpdate:currentTime];
     [self moveInvadersForUpdate:currentTime];
 }
@@ -215,6 +248,18 @@ typedef enum InvaderMovementDirection {
     
     //3
     self.timeOfLastMove = currentTime;
+}
+
+-(void)processUserTapsForUpdate:(NSTimeInterval)currentTime {
+    //1
+    for (NSNumber* tapCount in [self.tapQueue copy]) {
+        if ([tapCount unsignedIntegerValue] == 1) {
+            //2
+            [self fireShipBullets];
+        }
+        //3
+        [self.tapQueue removeObject:tapCount];
+    }
 }
 
 -(void)processUserMotionForUpdate:(NSTimeInterval)currentTime {
@@ -274,8 +319,51 @@ typedef enum InvaderMovementDirection {
 }
 
 #pragma mark - Bullet Helpers
+-(void)fireBullet:(SKNode*)bullet toDestination:(CGPoint)destination withDuration:(NSTimeInterval)duration soundFileName:(NSString*)soundFileName {
+    //1
+    SKAction* bulletAction = [SKAction sequence:@[[SKAction moveTo:destination duration:duration],
+                                                  [SKAction waitForDuration:3.0/60.0],
+                                                  [SKAction removeFromParent]]];
+    //2
+    SKAction* soundAction  = [SKAction playSoundFileNamed:soundFileName waitForCompletion:YES];
+    //3
+    [bullet runAction:[SKAction group:@[bulletAction, soundAction]]];
+    //4
+    [self addChild:bullet];
+}
+
+-(void)fireShipBullets {
+    SKNode* existingBullet = [self childNodeWithName:kShipFiredBulletName];
+    //1
+    if (!existingBullet) {
+        SKNode* ship = [self childNodeWithName:kShipName];
+        SKNode* bullet = [self makeBulletOfType:ShipFiredBulletType];
+        //2
+        bullet.position = CGPointMake(ship.position.x, ship.position.y + ship.frame.size.height - bullet.frame.size.height / 2);
+        //3
+        CGPoint bulletDestination = CGPointMake(ship.position.x, self.frame.size.height + bullet.frame.size.height / 2);
+        //4
+        [self fireBullet:bullet toDestination:bulletDestination withDuration:1.0 soundFileName:@"ShipBullet.wav"];
+    }
+}
 
 #pragma mark - User Tap Helpers
+-(void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
+    // Intentional no-op
+}
+
+-(void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event {
+    // Intentional no-op
+}
+
+-(void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event {
+    // Intentional no-op
+}
+
+-(void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
+    UITouch* touch = [touches anyObject];
+    if (touch.tapCount == 1) [self.tapQueue addObject:@1];
+}
 
 #pragma mark - HUD Helpers
 
