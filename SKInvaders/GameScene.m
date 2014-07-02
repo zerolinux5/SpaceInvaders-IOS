@@ -62,6 +62,8 @@ typedef enum BulletType {
     @property (strong) CMMotionManager* motionManager;
     @property (strong) NSMutableArray* tapQueue;
     @property (strong) NSMutableArray* contactQueue;
+    @property NSUInteger score;
+    @property CGFloat shipHealth;
 @end
 
 
@@ -197,6 +199,7 @@ typedef enum BulletType {
     //2
     ship.position = CGPointMake(self.size.width / 2.0f, kShipSize.height/2.0f);
     [self addChild:ship];
+    self.shipHealth = 1.0f;
 }
 
 -(SKNode*)makeShip {
@@ -240,7 +243,7 @@ typedef enum BulletType {
     healthLabel.fontSize = 15;
     //5
     healthLabel.fontColor = [SKColor redColor];
-    healthLabel.text = [NSString stringWithFormat:@"Health: %.1f%%", 100.0f];
+    healthLabel.text = [NSString stringWithFormat:@"Health: %.1f%%", self.shipHealth * 100.0f];
     //6
     healthLabel.position = CGPointMake(self.size.width - healthLabel.frame.size.width/2 - 20, self.size.height - (20 + healthLabel.frame.size.height/2));
     [self addChild:healthLabel];
@@ -436,29 +439,53 @@ typedef enum BulletType {
 
 #pragma mark - HUD Helpers
 
+-(void)adjustScoreBy:(NSUInteger)points {
+    self.score += points;
+    SKLabelNode* score = (SKLabelNode*)[self childNodeWithName:kScoreHudName];
+    score.text = [NSString stringWithFormat:@"Score: %04u", self.score];
+}
+
+-(void)adjustShipHealthBy:(CGFloat)healthAdjustment {
+    //1
+    self.shipHealth = MAX(self.shipHealth + healthAdjustment, 0);
+    
+    SKLabelNode* health = (SKLabelNode*)[self childNodeWithName:kHealthHudName];
+    health.text = [NSString stringWithFormat:@"Health: %.1f%%", self.shipHealth * 100];
+}
+
 #pragma mark - Physics Contact Helpers
 -(void)didBeginContact:(SKPhysicsContact *)contact {
     [self.contactQueue addObject:contact];
 }
 
 -(void)handleContact:(SKPhysicsContact*)contact {
-    //1
     // Ensure you haven't already handled this contact and removed its nodes
     if (!contact.bodyA.node.parent || !contact.bodyB.node.parent) return;
     
     NSArray* nodeNames = @[contact.bodyA.node.name, contact.bodyB.node.name];
     if ([nodeNames containsObject:kShipName] && [nodeNames containsObject:kInvaderFiredBulletName]) {
-        //2
         // Invader bullet hit a ship
         [self runAction:[SKAction playSoundFileNamed:@"ShipHit.wav" waitForCompletion:NO]];
-        [contact.bodyA.node removeFromParent];
-        [contact.bodyB.node removeFromParent];
+        //1
+        [self adjustShipHealthBy:-0.334f];
+        if (self.shipHealth <= 0.0f) {
+            //2
+            [contact.bodyA.node removeFromParent];
+            [contact.bodyB.node removeFromParent];
+        } else {
+            //3
+            SKNode* ship = [self childNodeWithName:kShipName];
+            ship.alpha = self.shipHealth;
+            if (contact.bodyA.node == ship) [contact.bodyB.node removeFromParent];
+            else [contact.bodyA.node removeFromParent];
+        }
     } else if ([nodeNames containsObject:kInvaderName] && [nodeNames containsObject:kShipFiredBulletName]) {
-        //3
         // Ship bullet hit an invader
         [self runAction:[SKAction playSoundFileNamed:@"InvaderHit.wav" waitForCompletion:NO]];
         [contact.bodyA.node removeFromParent];
         [contact.bodyB.node removeFromParent];
+        //4
+        [self adjustScoreBy:100];
     }
 }
 
