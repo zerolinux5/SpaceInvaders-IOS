@@ -8,6 +8,7 @@
 
 #import "GameScene.h"
 #import <CoreMotion/CoreMotion.h>
+#import "GameOverScene.h"
 
 #pragma mark - Custom Type Definitions
 static const u_int32_t kInvaderCategory            = 0x1 << 0;
@@ -44,6 +45,7 @@ typedef enum BulletType {
 //3
 #define kInvaderName @"invader"
 #define kShipSize CGSizeMake(30, 16)
+#define kMinInvaderBottomHeight 2 * kShipSize.height
 #define kShipName @"ship"
 #define kScoreHudName @"scoreHud"
 #define kHealthHudName @"healthHud"
@@ -64,6 +66,7 @@ typedef enum BulletType {
     @property (strong) NSMutableArray* contactQueue;
     @property NSUInteger score;
     @property CGFloat shipHealth;
+    @property BOOL gameEnding;
 @end
 
 
@@ -255,6 +258,7 @@ typedef enum BulletType {
 #pragma mark - Scene Update
 
 -(void)update:(NSTimeInterval)currentTime {
+    if ([self isGameOver]) [self endGame];
     [self processContactsForUpdate:currentTime];
     [self processUserTapsForUpdate:currentTime];
     [self processUserMotionForUpdate:currentTime];
@@ -493,5 +497,36 @@ typedef enum BulletType {
 }
 
 #pragma mark - Game End Helpers
+-(BOOL)isGameOver {
+    //1
+    SKNode* invader = [self childNodeWithName:kInvaderName];
+    
+    //2
+    __block BOOL invaderTooLow = NO;
+    [self enumerateChildNodesWithName:kInvaderName usingBlock:^(SKNode *node, BOOL *stop) {
+        if (CGRectGetMinY(node.frame) <= kMinInvaderBottomHeight) {
+            invaderTooLow = YES;
+            *stop = YES;
+        }
+    }];
+    
+    //3
+    SKNode* ship = [self childNodeWithName:kShipName];
+    
+    //4
+    return !invader || invaderTooLow || !ship;
+}
+
+-(void)endGame {
+    //1
+    if (!self.gameEnding) {
+        self.gameEnding = YES;
+        //2
+        [self.motionManager stopAccelerometerUpdates];
+        //3
+        GameOverScene* gameOverScene = [[GameOverScene alloc] initWithSize:self.size];
+        [self.view presentScene:gameOverScene transition:[SKTransition doorsOpenHorizontalWithDuration:1.0]];
+    }
+}
 
 @end
