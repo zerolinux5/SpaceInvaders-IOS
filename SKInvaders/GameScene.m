@@ -379,11 +379,13 @@ typedef enum BulletType {
             case InvaderMovementDirectionDownThenLeft:
                 //5
                 proposedMovementDirection = InvaderMovementDirectionLeft;
+                [self adjustInvaderMovementToTimePerMove:self.timePerMove * 0.8];
                 *stop = YES;
                 break;
             case InvaderMovementDirectionDownThenRight:
                 //6
                 proposedMovementDirection = InvaderMovementDirectionRight;
+                [self adjustInvaderMovementToTimePerMove:self.timePerMove * 0.8];
                 *stop = YES;
                 break;
             default:
@@ -396,6 +398,21 @@ typedef enum BulletType {
         self.invaderMovementDirection = proposedMovementDirection;
     }
 }
+
+-(void)adjustInvaderMovementToTimePerMove:(NSTimeInterval)newTimePerMove {
+    //1
+    if (newTimePerMove <= 0) return;
+    
+    //2
+    double ratio = self.timePerMove / newTimePerMove;
+    self.timePerMove = newTimePerMove;
+    
+    [self enumerateChildNodesWithName:kInvaderName usingBlock:^(SKNode *node, BOOL *stop) {
+        //3
+        node.speed = node.speed * ratio;
+    }];
+}
+
 
 #pragma mark - Bullet Helpers
 -(void)fireBullet:(SKNode*)bullet toDestination:(CGPoint)destination withDuration:(NSTimeInterval)duration soundFileName:(NSString*)soundFileName {
