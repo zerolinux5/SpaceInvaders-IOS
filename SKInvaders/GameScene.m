@@ -139,25 +139,32 @@ typedef enum BulletType {
     [self setupHud];
 }
 
--(SKNode*)makeInvaderOfType:(InvaderType)invaderType {
-    //1
-    SKColor* invaderColor;
+-(NSArray*)loadInvaderTexturesOfType:(InvaderType)invaderType {
+    NSString* prefix;
     switch (invaderType) {
         case InvaderTypeA:
-            invaderColor = [SKColor redColor];
+            prefix = @"InvaderA";
             break;
         case InvaderTypeB:
-            invaderColor = [SKColor greenColor];
+            prefix = @"InvaderB";
             break;
         case InvaderTypeC:
         default:
-            invaderColor = [SKColor blueColor];
+            prefix = @"InvaderC";
             break;
     }
-    
+    //1
+    return @[[SKTexture textureWithImageNamed:[NSString stringWithFormat:@"%@_00.png", prefix]],
+             [SKTexture textureWithImageNamed:[NSString stringWithFormat:@"%@_01.png", prefix]]];
+}
+
+-(SKNode*)makeInvaderOfType:(InvaderType)invaderType {
+    NSArray* invaderTextures = [self loadInvaderTexturesOfType:invaderType];
     //2
-    SKSpriteNode* invader = [SKSpriteNode spriteNodeWithColor:invaderColor size:kInvaderSize];
+    SKSpriteNode* invader = [SKSpriteNode spriteNodeWithTexture:[invaderTextures firstObject]];
     invader.name = kInvaderName;
+    //3
+    [invader runAction:[SKAction repeatActionForever:[SKAction animateWithTextures:invaderTextures timePerFrame:self.timePerMove]]];
     
     invader.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:invader.frame.size];
     invader.physicsBody.dynamic = NO;
@@ -203,27 +210,23 @@ typedef enum BulletType {
 }
 
 -(SKNode*)makeShip {
-    SKNode* ship = [SKSpriteNode spriteNodeWithColor:[SKColor greenColor] size:kShipSize];
+    //1
+    SKSpriteNode* ship = [SKSpriteNode spriteNodeWithImageNamed:@"Ship.png"];
     ship.name = kShipName;
-    
-    //1
+    //2
+    ship.color = [UIColor greenColor];
+    ship.colorBlendFactor = 1.0f;
     ship.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:ship.frame.size];
-    //2
     ship.physicsBody.dynamic = YES;
-    //3
     ship.physicsBody.affectedByGravity = NO;
-    //4
     ship.physicsBody.mass = 0.02;
-    
-    //1
     ship.physicsBody.categoryBitMask = kShipCategory;
-    //2
     ship.physicsBody.contactTestBitMask = 0x0;
-    //3
     ship.physicsBody.collisionBitMask = kSceneEdgeCategory;
     
     return ship;
 }
+
 
 -(void)setupHud {
     SKLabelNode* scoreLabel = [SKLabelNode labelNodeWithFontNamed:@"Courier"];
