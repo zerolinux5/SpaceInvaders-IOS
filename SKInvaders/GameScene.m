@@ -10,6 +10,12 @@
 #import <CoreMotion/CoreMotion.h>
 
 #pragma mark - Custom Type Definitions
+static const u_int32_t kInvaderCategory            = 0x1 << 0;
+static const u_int32_t kShipFiredBulletCategory    = 0x1 << 1;
+static const u_int32_t kShipCategory               = 0x1 << 2;
+static const u_int32_t kSceneEdgeCategory          = 0x1 << 3;
+static const u_int32_t kInvaderFiredBulletCategory = 0x1 << 4;
+
 //1
 typedef enum InvaderType {
     InvaderTypeA,
@@ -55,6 +61,7 @@ typedef enum BulletType {
     @property NSTimeInterval timePerMove;
     @property (strong) CMMotionManager* motionManager;
     @property (strong) NSMutableArray* tapQueue;
+    @property (strong) NSMutableArray* contactQueue;
 @end
 
 
@@ -71,10 +78,22 @@ typedef enum BulletType {
         case ShipFiredBulletType:
             bullet = [SKSpriteNode spriteNodeWithColor:[SKColor greenColor] size:kBulletSize];
             bullet.name = kShipFiredBulletName;
+            bullet.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:bullet.frame.size];
+            bullet.physicsBody.dynamic = YES;
+            bullet.physicsBody.affectedByGravity = NO;
+            bullet.physicsBody.categoryBitMask = kShipFiredBulletCategory;
+            bullet.physicsBody.contactTestBitMask = kInvaderCategory;
+            bullet.physicsBody.collisionBitMask = 0x0;
             break;
         case InvaderFiredBulletType:
             bullet = [SKSpriteNode spriteNodeWithColor:[SKColor magentaColor] size:kBulletSize];
             bullet.name = kInvaderFiredBulletName;
+            bullet.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:bullet.frame.size];
+            bullet.physicsBody.dynamic = YES;
+            bullet.physicsBody.affectedByGravity = NO;
+            bullet.physicsBody.categoryBitMask = kInvaderFiredBulletCategory;
+            bullet.physicsBody.contactTestBitMask = kShipCategory;
+            bullet.physicsBody.collisionBitMask = 0x0;
             break;
         default:
             bullet = nil;
@@ -93,6 +112,8 @@ typedef enum BulletType {
         [self.motionManager startAccelerometerUpdates];
         self.tapQueue = [NSMutableArray array];
         self.userInteractionEnabled = YES;
+        self.contactQueue = [NSMutableArray array];
+        self.physicsWorld.contactDelegate = self;
     }
 }
 
@@ -110,6 +131,7 @@ typedef enum BulletType {
     //3
     self.timeOfLastMove = 0.0;
     self.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:self.frame];
+    self.physicsBody.categoryBitMask = kSceneEdgeCategory;
     [self setupInvaders];
     [self setupShip];
     [self setupHud];
@@ -134,6 +156,12 @@ typedef enum BulletType {
     //2
     SKSpriteNode* invader = [SKSpriteNode spriteNodeWithColor:invaderColor size:kInvaderSize];
     invader.name = kInvaderName;
+    
+    invader.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:invader.frame.size];
+    invader.physicsBody.dynamic = NO;
+    invader.physicsBody.categoryBitMask = kInvaderCategory;
+    invader.physicsBody.contactTestBitMask = 0x0;
+    invader.physicsBody.collisionBitMask = 0x0;
     
     return invader;
 }
@@ -184,6 +212,13 @@ typedef enum BulletType {
     //4
     ship.physicsBody.mass = 0.02;
     
+    //1
+    ship.physicsBody.categoryBitMask = kShipCategory;
+    //2
+    ship.physicsBody.contactTestBitMask = 0x0;
+    //3
+    ship.physicsBody.collisionBitMask = kSceneEdgeCategory;
+    
     return ship;
 }
 
@@ -214,6 +249,7 @@ typedef enum BulletType {
 #pragma mark - Scene Update
 
 -(void)update:(NSTimeInterval)currentTime {
+    [self processContactsForUpdate:currentTime];
     [self processUserTapsForUpdate:currentTime];
     [self processUserMotionForUpdate:currentTime];
     [self moveInvadersForUpdate:currentTime];
@@ -297,6 +333,13 @@ typedef enum BulletType {
             //6
             [self fireBullet:bullet toDestination:bulletDestination withDuration:2.0 soundFileName:@"InvaderBullet.wav"];
         }
+    }
+}
+
+-(void)processContactsForUpdate:(NSTimeInterval)currentTime {
+    for (SKPhysicsContact* contact in [self.contactQueue copy]) {
+        [self handleContact:contact];
+        [self.contactQueue removeObject:contact];
     }
 }
 
@@ -394,6 +437,30 @@ typedef enum BulletType {
 #pragma mark - HUD Helpers
 
 #pragma mark - Physics Contact Helpers
+-(void)didBeginContact:(SKPhysicsContact *)contact {
+    [self.contactQueue addObject:contact];
+}
+
+-(void)handleContact:(SKPhysicsContact*)contact {
+    //1
+    // Ensure you haven't already handled this contact and removed its nodes
+    if (!contact.bodyA.node.parent || !contact.bodyB.node.parent) return;
+    
+    NSArray* nodeNames = @[contact.bodyA.node.name, contact.bodyB.node.name];
+    if ([nodeNames containsObject:kShipName] && [nodeNames containsObject:kInvaderFiredBulletName]) {
+        //2
+        // Invader bullet hit a ship
+        [self runAction:[SKAction playSoundFileNamed:@"ShipHit.wav" waitForCompletion:NO]];
+        [contact.bodyA.node removeFromParent];
+        [contact.bodyB.node removeFromParent];
+    } else if ([nodeNames containsObject:kInvaderName] && [nodeNames containsObject:kShipFiredBulletName]) {
+        //3
+        // Ship bullet hit an invader
+        [self runAction:[SKAction playSoundFileNamed:@"InvaderHit.wav" waitForCompletion:NO]];
+        [contact.bodyA.node removeFromParent];
+        [contact.bodyB.node removeFromParent];
+    }
+}
 
 #pragma mark - Game End Helpers
 
